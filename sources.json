@@ -1,0 +1,39 @@
+{
+  "proxy": "https://github.chenc.dev/",
+  "output": "all-apps.json",
+  "sources": [
+    {
+      "id": "altgallery",
+      "name": "AltGallery",
+      "url": "https://raw.githubusercontent.com/bebound/AltGallery/refs/heads/master/all-apps.json",
+      "enabled": true
+    },
+    {
+      "id": "cilicili",
+      "name": "CiliCili",
+      "enabled": true,
+      "manual": {
+        "name": "CiliCili",
+        "bundleIdentifier": "com.cilicili.bili",
+        "developerName": "Rone89",
+        "subtitle": "SwiftUI 第三方 B 站客户端",
+        "localizedDescription": "一个使用 SwiftUI 开发的第三方 B 站客户端，支持首页推荐、搜索、UP 主空间、视频播放和弹幕等。",
+        "iconURL": "https://raw.githubusercontent.com/Rone89/cilicili/refs/heads/main/Assets.xcassets/AppIcon.appiconset/icon.png",
+        "tintColor": "#FB7299",
+        "github": {
+          "owner": "Rone89",
+          "repo": "cilicili",
+          "asset": "bili-release-unsigned.ipa"
+        },
+        "versions": [
+          {
+            "version": "1.1.2",
+            "date": "2026-11-03T13:43:50Z",
+            "downloadURL": "https://github.com/Rone89/cilicili/releases/download/v1.1.2/bili-release-unsigned.ipa",
+            "size": 24326963
+          }
+        ]
+      }
+    }
+  ]
+}

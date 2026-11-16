@@ -1,0 +1,47 @@
+name: Update AltStore Source
+
+on:
+  schedule:
+    # 每天 UTC 00:00 与 12:00 各运行一次（对应北京时间 08:00 和 20:00）
+    - cron: "0 0,12 * * *"
+  workflow_dispatch: {} # 支持手动触发
+  push:
+    branches:
+      - main
+    paths:
+      - "sources.json"
+      - "scripts/process.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-source
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run processing script
+        run: python3 scripts/process.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet all-apps.json; then
+            git add all-apps.json
+            git commit -m "chore: 自动更新 all-apps.json ($(date -u +%Y-%m-%d))"
+            git push
+          else
+            echo "无变化，跳过提交"
+          fi
