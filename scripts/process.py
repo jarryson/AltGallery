@@ -136,6 +136,37 @@ def fetch_github_release(owner, repo):
     return fetch_json(url)
 
 
+def fetch_github_release_with_asset(owner, repo, asset_rule):
+    """获取最新「包含匹配资产」的 release。
+
+    当仓库 latest release 不含目标资产（例如最新 tag 只发了 APK、
+    而 IPA 在更早的 release 里）时，遍历 release 列表找到最新一条
+    含匹配资产的 release。返回 (release, asset)，找不到则抛异常。
+    """
+    # 先试 latest
+    latest = fetch_github_release(owner, repo)
+    asset = match_asset(latest.get("assets", []), asset_rule)
+    if asset:
+        return latest, asset
+
+    # 回退：遍历 release 列表（按发布时间倒序）
+    list_url = f"https://api.github.com/repos/{owner}/{repo}/releases?per_page=100"
+    releases = fetch_json(list_url)
+    if not isinstance(releases, list):
+        # GitHub API 限流等情况下会返回 {"message": ...}，抛异常交给上层回退
+        raise ValueError(
+            f"Releases 列表接口返回异常（可能被限流）: {releases}"
+        )
+    for rel in releases:
+        asset = match_asset(rel.get("assets", []), asset_rule)
+        if asset:
+            return rel, asset
+
+    raise ValueError(
+        f"未在 {owner}/{repo} 的任何 release 中找到匹配资产（规则: {asset_rule}）"
+    )
+
+
 def match_asset(assets, asset_rule):
     """在 release 资产列表中匹配 IPA 文件。
 
@@ -167,23 +198,33 @@ def build_versions_from_github(github_cfg):
     """根据 manual.github 配置探测最新 release，生成 versions 列表。
 
     返回 (versions, 日志信息)，失败抛异常由上层捕获。
+
+    github_cfg 可选字段：
+      - owner / repo：必填
+      - asset：资产匹配规则（精确名或正则），默认匹配 .ipa 结尾
+      - search_all_releases：为 true 时，若 latest 不含匹配资产，
+        则遍历全部 release 找最新含匹配资产的 release（用于 IPA 与
+        APK 混发、latest 是 APK 的仓库）。
     """
     owner = github_cfg["owner"]
     repo = github_cfg["repo"]
     asset_rule = github_cfg.get("asset", r".*\.ipa$")
 
-    release = fetch_github_release(owner, repo)
+    if github_cfg.get("search_all_releases"):
+        release, asset = fetch_github_release_with_asset(owner, repo, asset_rule)
+    else:
+        release = fetch_github_release(owner, repo)
+        asset = match_asset(release.get("assets", []), asset_rule)
+        if not asset:
+            raise ValueError(
+                f"GitHub 最新 release ({release.get('tag_name')}) 中未找到匹配资产（规则: {asset_rule}）"
+            )
+
     tag = release.get("tag_name", "")
     # 去掉可能的 "v" 前缀作为版本号
     version = tag[1:] if tag.startswith("v") else tag
     if not version:
         version = release.get("name", "unknown")
-
-    asset = match_asset(release.get("assets", []), asset_rule)
-    if not asset:
-        raise ValueError(
-            f"GitHub 最新 release ({tag}) 中未找到匹配资产（规则: {asset_rule}）"
-        )
 
     versions = [
         {

@@ -18,7 +18,7 @@
         "developerName": "Rone89",
         "subtitle": "SwiftUI 第三方 B 站客户端",
         "localizedDescription": "一个使用 SwiftUI 开发的第三方 B 站客户端，支持首页推荐、搜索、UP 主空间、视频播放和弹幕等。",
-        "iconURL": "https://raw.githubusercontent.com/Rone89/cilicili/refs/heads/main/Assets.xcassets/AppIcon.appiconset/icon.png",
+        "iconURL": "https://raw.githubusercontent.com/Rone89/cilicili/refs/heads/main/bili/Assets.xcassets/AppIcon.appiconset/cilicili-icon.png",
         "tintColor": "#FB7299",
         "github": {
           "owner": "Rone89",
@@ -31,6 +31,67 @@
             "date": "2026-11-03T13:43:50Z",
             "downloadURL": "https://github.com/Rone89/cilicili/releases/download/v1.1.2/bili-release-unsigned.ipa",
             "size": 24326963
+          }
+        ]
+      }
+    },
+    {
+      "id": "camlo",
+      "name": "Camlo",
+      "url": "https://raw.githubusercontent.com/Kianuni/Camlo/main/apps.json",
+      "enabled": true
+    },
+    {
+      "id": "lilite",
+      "name": "LiLite",
+      "enabled": true,
+      "manual": {
+        "name": "LiLite",
+        "bundleIdentifier": "com.liuliuya.PiliNative",
+        "developerName": "liuliuya2333",
+        "subtitle": "轻哩 · 轻盈顺滑的原生 iOS 第三方哔哩哔哩客户端",
+        "localizedDescription": "轻哩 LiLite 是一款轻盈顺滑的原生 iOS 第三方哔哩哔哩客户端，SwiftUI 编写，为 iOS 26 Liquid Glass 设计，mpv / AVPlayer 双内核。",
+        "iconURL": "https://raw.githubusercontent.com/liuliuya2333/LiLite/main/Resources/AppIcon.png",
+        "tintColor": "#00A1D6",
+        "github": {
+          "owner": "liuliuya2333",
+          "repo": "LiLite",
+          "asset": "LiLite-.*-unsigned.ipa"
+        },
+        "versions": [
+          {
+            "version": "1.0.22",
+            "date": "2026-11-20T10:07:20Z",
+            "downloadURL": "https://github.com/liuliuya2333/LiLite/releases/download/v1.0.22/LiLite-1.0.22-unsigned.ipa",
+            "size": 116795428
+          }
+        ]
+      }
+    },
+    {
+      "id": "iduanju",
+      "name": "iDuanJu",
+      "enabled": true,
+      "manual": {
+        "name": "iDuanJu",
+        "bundleIdentifier": "com.local.STV",
+        "developerName": "my-name-is-alan",
+        "subtitle": "i短剧 · 免费开源的多源短剧/视频/漫画聚合播放器",
+        "localizedDescription": "i短剧是一款免费开源的 iOS 多源短剧/视频/漫画/Telegram 聚合播放器（SwiftUI + QuickJS 插件沙箱）。",
+        "iconURL": "https://raw.githubusercontent.com/my-name-is-alan/iDuanJu/main/STV/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+        "tintColor": "#FF5A5F",
+        "github": {
+          "owner": "my-name-is-alan",
+          "repo": "iDuanJu",
+          "asset": "STV-.*-unsigned.ipa",
+          "search_all_releases": true
+        },
+        "versions": [
+          {
+            "version": "1.5b15-novel-ui",
+            "date": "2026-11-20T08:35:34Z",
+            "downloadURL": "https://github.com/my-name-is-alan/iDuanJu/releases/download/v1.5b15-novel-ui/STV-1.5b15-unsigned.ipa",
+            "size": 42773255
           }
         ]
       }
