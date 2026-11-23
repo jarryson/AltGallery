@@ -277,7 +277,7 @@ def main():
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
 
-    proxy = config.get("proxy", "https://git.tangbai.cc/")
+    proxy = config.get("proxy", "https://ghproxy.imciel.com/")
     if not proxy.endswith("/"):
         proxy += "/"
 
