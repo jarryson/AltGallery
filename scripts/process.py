@@ -12,6 +12,13 @@ AltStore 源聚合与 GitHub 加速处理脚本
 
 用法：
     python3 scripts/process.py [--config sources.json] [--output all-apps.json]
+    python3 scripts/process.py --watch [--interval 3]   # 监听模式
+
+监听模式（--watch）：
+    - 监听 all-apps.json 是否被删除 / 不存在，若是则自动重新生成。
+    - 监听 sources.json 中 proxy 地址是否变更，变更后立即用最新 proxy 重新生成。
+    - 生成时覆盖旧文件，格式与生成规则一致。
+    - 生成失败时打印明确错误信息。
 """
 
 import argparse
@@ -20,6 +27,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 
 GITHUB_HOSTS = (
@@ -264,17 +272,12 @@ def load_manual(entry):
     return [app]
 
 
-def main():
-    parser = argparse.ArgumentParser(description="聚合 AltStore 源并添加 GitHub 加速前缀")
-    parser.add_argument("--config", default="sources.json")
-    parser.add_argument("--output", default="all-apps.json")
-    parser.add_argument("--no-cache", action="store_true", help="禁用源数据缓存")
-    args = parser.parse_args()
+def generate(config_path, output_path, no_cache=False):
+    """执行一次完整的聚合生成，返回退出码（0=成功，1=部分失败，2=完全失败）。
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(base_dir, args.config)
-    output_path = os.path.join(base_dir, args.output)
-    cache_dir = os.path.join(base_dir, ".cache")
+    将核心逻辑从 main 中抽出，供普通模式和 watch 模式复用。
+    """
+    cache_dir = os.path.join(os.path.dirname(config_path), ".cache")
 
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
@@ -283,14 +286,14 @@ def main():
     proxy = config.get("proxy")
     if not proxy:
         log("错误：sources.json 缺少 proxy 字段，请在该文件中配置代理前缀后重试。")
-        sys.exit(2)
+        return 2
     if not isinstance(proxy, str):
         log(f"错误：proxy 字段类型错误（期望字符串，得到 {type(proxy).__name__}）。")
-        sys.exit(2)
+        return 2
     proxy = proxy.strip()
     if not proxy:
         log("错误：sources.json 的 proxy 字段为空字符串。")
-        sys.exit(2)
+        return 2
     if not proxy.endswith("/"):
         proxy += "/"
 
@@ -309,7 +312,7 @@ def main():
             if url:
                 sid = entry.get("id", name)
                 cache_path = os.path.join(cache_dir, f"{sid}.json")
-                if args.no_cache:
+                if no_cache:
                     data = fetch_json(url)
                 else:
                     data, from_cache = fetch_json_with_cache(url, cache_path)
@@ -334,7 +337,7 @@ def main():
         log(f"已启用源数量: {len(enabled_sources)}，失败数量: {len(errors)}")
         for e in errors:
             log("  - " + e)
-        sys.exit(2)
+        return 2
 
     # 去重（按 bundleIdentifier，后出现的保留）
     seen = {}
@@ -373,7 +376,90 @@ def main():
         for e in errors:
             log("  - " + e)
         log(f"成功源: {len(source_names)}/{len(enabled_sources)}，失败源: {len(errors)}")
-        sys.exit(1)
+        return 1
+    return 0
+
+
+def read_proxy(config_path):
+    """读取 sources.json 中的 proxy 字段，返回 (proxy, mtime)。
+
+    若文件不存在或解析失败，返回 (None, None)。
+    """
+    try:
+        st = os.stat(config_path)
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        return cfg.get("proxy"), st.st_mtime
+    except (OSError, json.JSONDecodeError) as e:
+        log(f"读取配置失败: {e}")
+        return None, None
+
+
+def watch(config_path, output_path, interval):
+    """监听模式：当 all-apps.json 被删除/不存在，或 proxy 变更时自动重新生成。"""
+    log(f"开始监听（间隔 {interval}s）")
+    log(f"  配置文件: {config_path}")
+    log(f"  输出文件: {output_path}")
+
+    last_proxy, _ = read_proxy(config_path)
+    log(f"  当前 proxy: {last_proxy}")
+
+    def regenerate(reason):
+        log(f"触发重新生成：{reason}")
+        code = generate(config_path, output_path)
+        if code == 0:
+            log(f"生成成功：{output_path}")
+        elif code == 1:
+            log(f"警告：生成完成但有部分源失败（退出码 1），文件已产出：{output_path}")
+        else:
+            log(f"错误：生成失败（退出码 {code}）")
+        return code in (0, 1)
+
+    # 首次启动：若输出文件不存在，立即生成
+    if not os.path.exists(output_path):
+        regenerate("all-apps.json 不存在，启动时立即生成")
+        last_proxy, _ = read_proxy(config_path)
+
+    try:
+        while True:
+            time.sleep(interval)
+
+            # 条件一：all-apps.json 被删除或不存在
+            if not os.path.exists(output_path):
+                if regenerate("检测到 all-apps.json 被删除/不存在"):
+                    last_proxy, _ = read_proxy(config_path)
+                continue
+
+            # 条件二：sources.json 的 proxy 变更
+            cur_proxy, _ = read_proxy(config_path)
+            if cur_proxy is not None and cur_proxy != last_proxy:
+                if regenerate(f"检测到 proxy 变更：{last_proxy} -> {cur_proxy}"):
+                    last_proxy = cur_proxy
+    except KeyboardInterrupt:
+        log("已停止监听")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="聚合 AltStore 源并添加 GitHub 加速前缀")
+    parser.add_argument("--config", default="sources.json")
+    parser.add_argument("--output", default="all-apps.json")
+    parser.add_argument("--no-cache", action="store_true", help="禁用源数据缓存")
+    parser.add_argument("--watch", action="store_true", help="监听模式：文件删除或 proxy 变更时自动重新生成")
+    parser.add_argument("--interval", type=float, default=3.0, help="监听模式下的轮询间隔秒数，默认 3")
+    args = parser.parse_args()
+
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(base_dir, args.config)
+    output_path = os.path.join(base_dir, args.output)
+
+    if args.watch:
+        if args.interval <= 0:
+            log("错误：--interval 必须大于 0")
+            sys.exit(2)
+        watch(config_path, output_path, args.interval)
+        return
+
+    sys.exit(generate(config_path, output_path, no_cache=args.no_cache))
 
 
 if __name__ == "__main__":

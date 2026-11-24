@@ -1,5 +1,5 @@
 {
-  "proxy": "https://github.chenc.dev/",
+  "proxy": "https://git.tangbai.cc/",
   "output": "all-apps.json",
   "sources": [
     {
@@ -92,6 +92,33 @@
             "date": "2026-11-20T08:35:34Z",
             "downloadURL": "https://github.com/my-name-is-alan/iDuanJu/releases/download/v1.5b15-novel-ui/STV-1.5b15-unsigned.ipa",
             "size": 42773255
+          }
+        ]
+      }
+    },
+    {
+      "id": "douduo",
+      "name": "DouDuo",
+      "enabled": true,
+      "manual": {
+        "name": "DouDuo",
+        "bundleIdentifier": "me.rrmm.douduo",
+        "developerName": "81199000",
+        "subtitle": "适配 iPhone Duo / iPad 的第三方抖音客户端",
+        "localizedDescription": "DouDuo 是一款适配 iPhone Duo / iPad 的第三方抖音客户端，支持原生播放、秒开 + 50 条预缓存、横滑快进、弹幕、评论、直播聊天、搜索、喜欢/收藏/历史。",
+        "iconURL": "https://raw.githubusercontent.com/81199000/DouDuo/main/DouDuo/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+        "tintColor": "#1E1E1E",
+        "github": {
+          "owner": "81199000",
+          "repo": "DouDuo",
+          "asset": "DouDuo-.*-unsigned.ipa"
+        },
+        "versions": [
+          {
+            "version": "1.7.3",
+            "date": "2026-11-24T06:51:33Z",
+            "downloadURL": "https://github.com/81199000/DouDuo/releases/download/v1.7.3/DouDuo-1.7.3-unsigned.ipa",
+            "size": 23555736
           }
         ]
       }

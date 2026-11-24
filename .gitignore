@@ -4,4 +4,3 @@ __pycache__/
 .DS_Store
 *.tar.gz
 .workbuddy/
-all-apps.json

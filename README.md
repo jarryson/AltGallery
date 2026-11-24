@@ -6,15 +6,20 @@
 
 1. 把本目录推送到你自己的 GitHub 仓库
 2. 编辑 `sources.json`，配置 `proxy` 前缀和源列表
-3. 本地运行 `python3 scripts/process.py` 生成 `all-apps.json`，在 AltStore / SideStore 中添加该源文件使用
+3. 仓库设置 → Actions → General → Workflow permissions → 选 "Read and write permissions"（让工作流能提交更新）
+4. 在 AltStore / SideStore 中添加源：
 
-   > `all-apps.json` 是**生成产物**（已被 `.gitignore` 忽略，不提交到仓库），每次运行脚本都会按最新 `sources.json` 配置覆盖生成。
+   ```
+   https://raw.githubusercontent.com/<你的用户名>/<仓库名>/main/all-apps.json
+   ```
+
+   > `all-apps.json` 是可直接订阅的源文件（随仓库提交，并由工作流自动更新）。每次运行脚本都会按最新 `sources.json` 配置覆盖生成。
 
 ## 自动更新
 
-工作流 `.github/workflows/update.yml` 每天 UTC 0:00 和 12:00（北京时间 08:00、20:00）自动运行，按最新配置重新生成 `all-apps.json`。也可在 Actions 页面手动点击 "Run workflow" 触发。
+工作流 `.github/workflows/update.yml` 每天 UTC 0:00 和 12:00（北京时间 08:00、20:00）自动运行，按最新配置重新生成 `all-apps.json` 并提交更新。也可在 Actions 页面手动点击 "Run workflow" 触发。
 
-工作流的职责是「每次运行都按当前最新配置全量重新生成」，而非常驻监控：只要 `sources.json`（含 `proxy`）或 `scripts/process.py` 有变更，推送到 `main` 分支就会触发重新生成；文件被删除后同样会在下一次运行/触发时重新生成。生成失败（如所有源不可用、proxy 缺失）会使工作流失败，起到告警作用。
+只要 `sources.json`（含 `proxy`）或 `scripts/process.py` 有变更，推送到 `main` 分支就会触发重新生成；文件被删除后同样会在下一次运行/触发时重新生成。生成失败（如所有源不可用、proxy 缺失）会使工作流失败，起到告警作用。
 
 ## 添加新源
 
@@ -89,16 +94,16 @@ python3 scripts/process.py --no-cache # 禁用缓存，强制重新拉取
 | `1` | 部分源失败（已用剩余成功源产出文件），错误详情见 stderr |
 | `2` | 所有源均失败，**未产出文件**（不会生成空文件） |
 
-### 自动重新生成（watch 守护）
+### 自动重新生成（watch 监听模式）
 
-`scripts/watch.py` 会在本地持续监听，满足以下任一条件时自动调用 `process.py` 重新生成（覆盖旧文件）：
+`process.py` 自带监听模式（`--watch`），持续监听并自动重新生成（覆盖旧文件）：
 
 - `all-apps.json` 被删除或不存在；
 - `sources.json` 中的 `proxy` 地址发生变更。
 
 ```bash
-python3 scripts/watch.py              # 默认每 3 秒轮询一次
-python3 scripts/watch.py --interval 5 # 自定义轮询间隔（秒）
+python3 scripts/process.py --watch              # 默认每 3 秒轮询一次
+python3 scripts/process.py --watch --interval 5 # 自定义轮询间隔（秒）
 ```
 
 启动时会先检查 `all-apps.json` 是否存在，不存在则立即生成；随后进入监听循环。生成失败时会打印明确的错误原因（超时、源全部失败等）。按 `Ctrl+C` 停止。
@@ -112,8 +117,7 @@ python3 scripts/watch.py --interval 5 # 自定义轮询间隔（秒）
 | 文件 | 说明 |
 | --- | --- |
 | `sources.json` | 源配置（代理前缀 + 源列表 + 手动应用） |
-| `scripts/process.py` | 处理脚本（含 GitHub Release 自动探测、源缓存、失败分级退出码） |
-| `scripts/watch.py` | 本地监听脚本（文件删除 / proxy 变更时自动重新生成） |
-| `all-apps.json` | 最终产出的聚合源（**生成产物，已忽略，不提交**） |
-| `.github/workflows/update.yml` | 定时重新生成工作流（按最新配置全量生成，不提交产物） |
+| `scripts/process.py` | 处理脚本（含 GitHub Release 自动探测、源缓存、失败分级退出码、watch 监听模式） |
+| `all-apps.json` | 最终产出的聚合源（可直接订阅，工作流自动更新） |
+| `.github/workflows/update.yml` | 定时重新生成工作流（按最新配置全量生成并提交） |
 | `.cache/` | 源数据缓存（不提交，自动生成） |
