@@ -82,6 +82,30 @@ python3 scripts/process.py --no-cache # 禁用缓存，强制重新拉取
 - 合并所有源的 `apps`（按 `bundleIdentifier` 去重）
 - 给所有 GitHub 网址（`github.com`、`raw.githubusercontent.com` 等）加代理前缀
 
+### 退出码与错误信息
+
+脚本用退出码区分不同结果，便于脚本化调用：
+
+| 退出码 | 含义 |
+| --- | --- |
+| `0` | 全部源处理成功，已产出文件 |
+| `1` | 部分源失败（已用剩余成功源产出文件），错误详情见 stderr |
+| `2` | 所有源均失败，**未产出文件**（不会生成空文件） |
+
+### 自动重新生成（watch 守护）
+
+`scripts/watch.py` 会在本地持续监听，满足以下任一条件时自动调用 `process.py` 重新生成（覆盖旧文件）：
+
+- `all-apps.json` 被删除或不存在；
+- `sources.json` 中的 `proxy` 地址发生变更。
+
+```bash
+python3 scripts/watch.py              # 默认每 3 秒轮询一次
+python3 scripts/watch.py --interval 5 # 自定义轮询间隔（秒）
+```
+
+启动时会先检查 `all-apps.json` 是否存在，不存在则立即生成；随后进入监听循环。生成失败时会打印明确的错误原因（超时、源全部失败等）。按 `Ctrl+C` 停止。
+
 ### 源数据缓存
 
 脚本会把成功拉取的源数据缓存到 `.cache/` 目录。当某次网络抖动导致拉取失败时，自动回退到上次成功的缓存，避免产出空源。缓存目录已加入 `.gitignore`，不提交到仓库（GitHub Actions 每次运行会重新拉取并填充）。
@@ -91,7 +115,8 @@ python3 scripts/process.py --no-cache # 禁用缓存，强制重新拉取
 | 文件 | 说明 |
 | --- | --- |
 | `sources.json` | 源配置（代理前缀 + 源列表 + 手动应用） |
-| `scripts/process.py` | 处理脚本（含 GitHub Release 自动探测、源缓存） |
+| `scripts/process.py` | 处理脚本（含 GitHub Release 自动探测、源缓存、失败分级退出码） |
+| `scripts/watch.py` | 本地监听脚本（文件删除 / proxy 变更时自动重新生成） |
 | `all-apps.json` | 最终产出的聚合源（自动生成） |
 | `.github/workflows/update.yml` | 定时自动更新工作流 |
 | `.cache/` | 源数据缓存（不提交，自动生成） |

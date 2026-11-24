@@ -259,6 +259,8 @@ def load_manual(entry):
         except Exception as e:
             log(f"  自动探测 [{app.get('name')}] 失败，回退到静态 versions: {e}")
             # versions 字段已由 manual 提供，保留静态兜底
+    # 确保 app 始终有 versions 字段（即使 manual 未提供静态版本）
+    app.setdefault("versions", [])
     return [app]
 
 
@@ -284,11 +286,11 @@ def main():
     merged_apps = []
     source_names = []
     errors = []
+    enabled_sources = [
+        e for e in config.get("sources", []) if e.get("enabled", True)
+    ]
 
-    for entry in config.get("sources", []):
-        if not entry.get("enabled", True):
-            continue
-
+    for entry in enabled_sources:
         name = entry.get("name", entry.get("id", "unknown"))
         url = entry.get("url")
 
@@ -314,6 +316,14 @@ def main():
             msg = f"源 [{name}] 处理失败: {e}"
             log(msg)
             errors.append(msg)
+
+    # 若所有源都失败（无任何可用应用），则不产出文件，直接报错退出。
+    if not merged_apps:
+        log("错误：所有源均处理失败，没有任何可用应用，未生成输出文件。")
+        log(f"已启用源数量: {len(enabled_sources)}，失败数量: {len(errors)}")
+        for e in errors:
+            log("  - " + e)
+        sys.exit(2)
 
     # 去重（按 bundleIdentifier，后出现的保留）
     seen = {}
@@ -348,11 +358,10 @@ def main():
 
     log(f"已输出 {output_path}，共 {len(proxied_apps)} 个应用")
     if errors:
-        log(f"警告：{len(errors)} 个源处理失败")
+        log(f"警告：{len(errors)} 个源处理失败（已用剩余成功源产出文件）")
         for e in errors:
             log("  - " + e)
-
-    if errors:
+        log(f"成功源: {len(source_names)}/{len(enabled_sources)}，失败源: {len(errors)}")
         sys.exit(1)
 
 
