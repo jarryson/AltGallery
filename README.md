@@ -1,23 +1,20 @@
 # AltStore 源聚合 + 国内加速
 
-将多个 AltStore 源（GitHub 仓库）聚合为一个源，并把其中所有 GitHub 链接自动添加 `https://github.chenc.dev/` 前缀，方便国内访问和下载 IPA。
+将多个 AltStore 源（GitHub 仓库）聚合为一个源，并把其中所有 GitHub 链接自动添加代理前缀（前缀由 `sources.json` 的 `proxy` 字段统一配置），方便国内访问和下载 IPA。
 
 ## 快速开始
 
 1. 把本目录推送到你自己的 GitHub 仓库
-2. 仓库设置 → Actions → 确保 Workflow 权限已开启（Settings → Actions → General → 勾选 "Read and write permissions"）
-3. GitHub Actions 会自动定时运行，产出 `all-apps.json`
-4. 在 AltStore / SideStore 中添加源：
+2. 编辑 `sources.json`，配置 `proxy` 前缀和源列表
+3. 本地运行 `python3 scripts/process.py` 生成 `all-apps.json`，在 AltStore / SideStore 中添加该源文件使用
 
-   ```
-   https://raw.githubusercontent.com/<你的用户名>/<仓库名>/main/all-apps.json
-   ```
-
-   > 若希望国内也能稳定访问源文件本身，可开启 GitHub Pages 部署，用 `https://<用户名>.github.io/<仓库名>/all-apps.json`。
+   > `all-apps.json` 是**生成产物**（已被 `.gitignore` 忽略，不提交到仓库），每次运行脚本都会按最新 `sources.json` 配置覆盖生成。
 
 ## 自动更新
 
-工作流 `.github/workflows/update.yml` 每天 UTC 0:00 和 12:00（北京时间 08:00、20:00）自动运行，拉取最新数据并提交更新。也可在 Actions 页面手动点击 "Run workflow" 触发。
+工作流 `.github/workflows/update.yml` 每天 UTC 0:00 和 12:00（北京时间 08:00、20:00）自动运行，按最新配置重新生成 `all-apps.json`。也可在 Actions 页面手动点击 "Run workflow" 触发。
+
+工作流的职责是「每次运行都按当前最新配置全量重新生成」，而非常驻监控：只要 `sources.json`（含 `proxy`）或 `scripts/process.py` 有变更，推送到 `main` 分支就会触发重新生成；文件被删除后同样会在下一次运行/触发时重新生成。生成失败（如所有源不可用、proxy 缺失）会使工作流失败，起到告警作用。
 
 ## 添加新源
 
@@ -117,6 +114,6 @@ python3 scripts/watch.py --interval 5 # 自定义轮询间隔（秒）
 | `sources.json` | 源配置（代理前缀 + 源列表 + 手动应用） |
 | `scripts/process.py` | 处理脚本（含 GitHub Release 自动探测、源缓存、失败分级退出码） |
 | `scripts/watch.py` | 本地监听脚本（文件删除 / proxy 变更时自动重新生成） |
-| `all-apps.json` | 最终产出的聚合源（自动生成） |
-| `.github/workflows/update.yml` | 定时自动更新工作流 |
+| `all-apps.json` | 最终产出的聚合源（**生成产物，已忽略，不提交**） |
+| `.github/workflows/update.yml` | 定时重新生成工作流（按最新配置全量生成，不提交产物） |
 | `.cache/` | 源数据缓存（不提交，自动生成） |

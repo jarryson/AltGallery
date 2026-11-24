@@ -7,7 +7,7 @@ AltStore 源聚合与 GitHub 加速处理脚本
 1. 读取 sources.json 中配置的源列表
 2. 拉取每个源的 JSON（AltStore 源格式）
 3. 合并所有源的 apps 数组
-4. 将其中所有 GitHub 网址统一添加代理前缀（默认 https://github.chenc.dev/）
+4. 将其中所有 GitHub 网址统一添加代理前缀（前缀来自 sources.json 的 proxy 字段）
 5. 输出合并后的 all-apps.json
 
 用法：
@@ -279,7 +279,18 @@ def main():
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
 
-    proxy = config.get("proxy", "https://ghproxy.imciel.com/")
+    # proxy 是唯一配置来源，缺失即为配置错误，不做任何硬编码兜底。
+    proxy = config.get("proxy")
+    if not proxy:
+        log("错误：sources.json 缺少 proxy 字段，请在该文件中配置代理前缀后重试。")
+        sys.exit(2)
+    if not isinstance(proxy, str):
+        log(f"错误：proxy 字段类型错误（期望字符串，得到 {type(proxy).__name__}）。")
+        sys.exit(2)
+    proxy = proxy.strip()
+    if not proxy:
+        log("错误：sources.json 的 proxy 字段为空字符串。")
+        sys.exit(2)
     if not proxy.endswith("/"):
         proxy += "/"
 

@@ -13,7 +13,7 @@ on:
       - "scripts/process.py"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: update-source
@@ -31,17 +31,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run processing script
+      # 每次运行都按最新配置全量重新生成 all-apps.json（覆盖旧文件）。
+      # all-apps.json 是生成产物，不提交回仓库；生成失败（非零退出码）会使本步骤失败，
+      # 从而让整个 workflow 失败，起到配置/源可用性告警的作用。
+      - name: Regenerate all-apps.json
         run: python3 scripts/process.py
-
-      - name: Commit changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet all-apps.json; then
-            git add all-apps.json
-            git commit -m "chore: 自动更新 all-apps.json ($(date -u +%Y-%m-%d))"
-            git push
-          else
-            echo "无变化，跳过提交"
-          fi

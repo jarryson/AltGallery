@@ -29,13 +29,6 @@ def log(msg):
     print(f"[watch] {msg}", file=sys.stderr, flush=True)
 
 
-def resolve_path(base_dir, rel):
-    """把相对路径解析为绝对路径。"""
-    if os.path.isabs(rel):
-        return rel
-    return os.path.join(base_dir, rel)
-
-
 def read_proxy(config_path):
     """读取 sources.json 中的 proxy 字段，返回 (proxy, mtime)。
 
