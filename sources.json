@@ -122,6 +122,33 @@
           }
         ]
       }
+    },
+    {
+      "id": "coolapk-desktop",
+      "name": "Coolapk Desktop",
+      "enabled": true,
+      "manual": {
+        "name": "酷安",
+        "bundleIdentifier": "com.coolapk.desktop",
+        "developerName": "coolapk-desktop",
+        "subtitle": "酷安跨平台桌面版",
+        "localizedDescription": "酷安跨平台桌面版，基于 Tauri + Vue 构建，支持 iOS / Android / Windows / macOS / Linux 多平台。",
+        "iconURL": "https://raw.githubusercontent.com/coolapk-desktop/coolapk-desktop/main/src-tauri/icons/icon.png",
+        "tintColor": "#00C853",
+        "github": {
+          "owner": "coolapk-desktop",
+          "repo": "coolapk-desktop",
+          "asset": "coolapk-.*-ios-.*-unsigned.ipa"
+        },
+        "versions": [
+          {
+            "version": "1.48.0",
+            "date": "2026-11-24T03:05:28Z",
+            "downloadURL": "https://github.com/coolapk-desktop/coolapk-desktop/releases/download/v1.48.0/coolapk-v1.48.0-ios-arm64-unsigned.ipa",
+            "size": 8935653
+          }
+        ]
+      }
     }
   ]
 }
