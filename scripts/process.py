@@ -109,13 +109,25 @@ def fetch_json_with_cache(url, cache_path, timeout=60):
         raise e
 
 
+# 匹配文本中内嵌的完整 URL（避免匹配到标点、引号、尖括号等）
+_EMBEDDED_URL_RE = re.compile(r"https?://[^\s\"'<>()\[\]{}]+")
+
+
 def should_proxy(url, proxy):
-    """判断一个 URL 是否是需要代理的 GitHub 地址（且尚未加前缀）。"""
+    """判断一个字符串是否为需要代理的 GitHub URL。
+
+    仅当整个字符串本身就是一个 http(s) URL 且指向 GitHub 时返回 True；
+    普通文本（如版本更新说明）即使内含 GitHub 链接也不整体匹配，
+    由 proxy_value 用正则单独提取内嵌 URL 处理。
+    """
     if not isinstance(url, str) or not url:
         return False
-    if url.startswith(proxy):
+    stripped = url.strip()
+    low = stripped.lower()
+    if not (low.startswith("http://") or low.startswith("https://")):
         return False
-    low = url.lower()
+    if stripped.startswith(proxy):
+        return False
     return any(host in low for host in GITHUB_HOSTS)
 
 
@@ -125,9 +137,21 @@ def proxy_url(url, proxy):
 
 
 def proxy_value(value, proxy):
-    """递归处理任意 JSON 结构中的字符串，给 GitHub 网址加前缀。"""
+    """递归处理任意 JSON 结构中的字符串，给 GitHub 网址加前缀。
+
+    - 纯 URL 字段（整体即 URL）→ 直接加前缀；
+    - 长文本字段（如 localizedDescription / 版本更新说明）→ 用正则
+      仅替换其中内嵌的 GitHub URL，避免把前缀错误拼到整个文本开头。
+    """
     if isinstance(value, str):
-        return proxy_url(value, proxy) if should_proxy(value, proxy) else value
+        if should_proxy(value, proxy):
+            return proxy_url(value, proxy)
+
+        def _replace_embedded(match):
+            u = match.group(0)
+            return proxy_url(u, proxy) if should_proxy(u, proxy) else u
+
+        return _EMBEDDED_URL_RE.sub(_replace_embedded, value)
     if isinstance(value, list):
         return [proxy_value(v, proxy) for v in value]
     if isinstance(value, dict):
