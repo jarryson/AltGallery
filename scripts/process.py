@@ -272,6 +272,53 @@ def load_manual(entry):
     return [app]
 
 
+def is_altgallery_source(entry):
+    """判断某个源是否为 altgallery 官方源（具有优先保留权）。
+
+    判定标准：源的 id 为 "altgallery"，或 url 指向 bebound/AltGallery 仓库。
+    """
+    eid = str(entry.get("id", "")).lower()
+    if eid == "altgallery":
+        return True
+    url = entry.get("url", "") or ""
+    return "bebound/AltGallery" in url
+
+
+def dedupe_apps(apps, preserve_bundle_ids):
+    """对一组 apps 去重，同时剔除与指定 bundleIdentifier 集合重复的项。
+
+    - preserve_bundle_ids：需保留的 bundleIdentifier 集合（来自更高优先级的源，
+      例如 altgallery）。任何 bundleIdentifier 落入该集合的 app 会被丢弃，
+      即「删除用户自定义添加的重复项」。
+    - 返回 (去重后的 apps, 被剔除的重复项列表)。
+
+    同组内的去重规则：按 bundleIdentifier，后出现的保留（与原逻辑一致），
+    被替换掉的旧项也计入 removed。
+    """
+    result = []
+    removed = []
+    index_by_bid = {}
+    for app in apps:
+        bid = app.get("bundleIdentifier")
+        if bid and bid in preserve_bundle_ids:
+            # 与更高优先级源重复，剔除
+            removed.append(app)
+            continue
+        if bid:
+            if bid in index_by_bid:
+                # 同组内重复：后出现保留，旧项移出 result 并计入 removed
+                old_idx = index_by_bid[bid]
+                removed.append(result[old_idx])
+                result[old_idx] = app
+                # index_by_bid[bid] 保持不变（仍指向该位置）
+            else:
+                index_by_bid[bid] = len(result)
+                result.append(app)
+        else:
+            result.append(app)
+    return result, removed
+
+
 def generate(config_path, output_path, no_cache=False):
     """执行一次完整的聚合生成，返回退出码（0=成功，1=部分失败，2=完全失败）。
 
@@ -304,6 +351,13 @@ def generate(config_path, output_path, no_cache=False):
         e for e in config.get("sources", []) if e.get("enabled", True)
     ]
 
+    # 分层去重：altgallery 源具有优先保留权，其收录的 bundleIdentifier
+    # 会作为「保留集合」，后续处理其他源时，凡落入该集合的自定义项都会被剔除，
+    # 避免自定义源与官方源重复导致误删 / 重复删除。
+    altgallery_bids = set()
+    altgallery_apps = []
+    other_apps = []
+
     for entry in enabled_sources:
         name = entry.get("name", entry.get("id", "unknown"))
         url = entry.get("url")
@@ -318,11 +372,14 @@ def generate(config_path, output_path, no_cache=False):
                     data, from_cache = fetch_json_with_cache(url, cache_path)
                 apps = data.get("apps", [])
                 log(f"拉取源 [{name}] 成功，含 {len(apps)} 个应用")
-                merged_apps.extend(apps)
+                if is_altgallery_source(entry):
+                    altgallery_apps.extend(apps)
+                else:
+                    other_apps.extend(apps)
             elif entry.get("manual"):
                 apps = load_manual(entry)
                 log(f"使用手动配置 [{name}]，含 {len(apps)} 个应用")
-                merged_apps.extend(apps)
+                other_apps.extend(apps)
             else:
                 raise ValueError("源既无 url 也无 manual 配置")
             source_names.append(name)
@@ -332,25 +389,34 @@ def generate(config_path, output_path, no_cache=False):
             errors.append(msg)
 
     # 若所有源都失败（无任何可用应用），则不产出文件，直接报错退出。
-    if not merged_apps:
+    if not altgallery_apps and not other_apps:
         log("错误：所有源均处理失败，没有任何可用应用，未生成输出文件。")
         log(f"已启用源数量: {len(enabled_sources)}，失败数量: {len(errors)}")
         for e in errors:
             log("  - " + e)
         return 2
 
-    # 去重（按 bundleIdentifier，后出现的保留）
-    seen = {}
-    for app in merged_apps:
-        bid = app.get("bundleIdentifier")
-        if bid:
-            seen[bid] = app
-        else:
-            seen[f"__anon_{len(seen)}"] = app
-    deduped_apps = list(seen.values())
+    # 1) 先对 altgallery 源自身去重（后出现保留），并收集其 bundleIdentifier 集合。
+    altgallery_apps, _ = dedupe_apps(altgallery_apps, set())
+    altgallery_bids = {
+        a.get("bundleIdentifier")
+        for a in altgallery_apps
+        if a.get("bundleIdentifier")
+    }
+
+    # 2) 再处理其他（自定义）源：剔除与 altgallery 重复的项，并做同组去重。
+    other_apps, removed = dedupe_apps(other_apps, altgallery_bids)
+    for app in removed:
+        log(
+            f"去重：已删除自定义重复项 [{app.get('name')}]"
+            f"（bundleIdentifier {app.get('bundleIdentifier')} 已被 altgallery 源收录）"
+        )
+
+    # 合并：altgallery 在前，其他源在后。
+    merged_apps = altgallery_apps + other_apps
 
     # 给所有 GitHub 网址加代理前缀
-    proxied_apps = proxy_value(deduped_apps, proxy)
+    proxied_apps = proxy_value(merged_apps, proxy)
 
     # 构建输出（保留 AltGallery 源本身的元信息）
     output = {

@@ -84,6 +84,15 @@ python3 scripts/process.py --no-cache # 禁用缓存，强制重新拉取
 - 合并所有源的 `apps`（按 `bundleIdentifier` 去重）
 - 给所有 GitHub 网址（`github.com`、`raw.githubusercontent.com` 等）加代理前缀
 
+### 源去重规则（altgallery 优先）
+
+当 `altgallery` 官方源与用户自定义源（如 `cilicili`、`douduo` 等）收录了同一个应用时，脚本会自动识别并**只删除用户自定义添加的重复项**，保留 `altgallery` 官方源的版本，避免重复出现或误删：
+
+- **判定标准**：以 `bundleIdentifier` 为唯一标识，`altgallery` 源（id 为 `altgallery`，或 url 指向 `bebound/AltGallery`）具有优先保留权。
+- **处理顺序**：先拉取并去重 `altgallery` 源，收集其 `bundleIdentifier` 集合；再处理其他源，凡落入该集合的自定义项都会被剔除（并在日志中明确标注被删除的原因）。
+- **结果**：每个 `bundleIdentifier` 在最终输出中只出现一次，且优先来自 `altgallery` 官方源。
+- **其他自定义源之间**：仍按「后出现保留」的去重规则处理。
+
 ### 退出码与错误信息
 
 脚本用退出码区分不同结果，便于脚本化调用：
